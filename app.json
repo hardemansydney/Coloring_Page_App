@@ -36,7 +36,8 @@
           "photosPermission": "Allow Coloring Magic to access your photos to turn them into coloring pages.",
           "cameraPermission": "Allow Coloring Magic to use your camera to take photos and turn them into coloring pages."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

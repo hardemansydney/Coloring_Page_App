@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
-import { Download } from "lucide-react-native";
+import { Download, Pen } from "lucide-react-native";
 
 export default function ProcessingScreen() {
   const router = useRouter();
@@ -80,6 +80,15 @@ export default function ProcessingScreen() {
 
         {pageResult?.status === "completed" ? (
           <View className="w-full max-w-[400px] gap-4">
+            <Button size="lg" className="h-16 w-full bg-sky-500" onPress={() => router.push({
+              pathname: "/color",
+              params: { imageUrl: resolveConvexUrl(pageResult.processedUrl!) }
+            })}>
+              <View className="flex-row items-center">
+                <Pen size={24} color="white" className="mr-2" />
+                <Text className="text-2xl font-black text-white">Color My Picture</Text>
+              </View>
+            </Button>
             <Button size="lg" className="h-16 w-full bg-green-500" onPress={saveAsPDF}>
               <Download size={24} color="white" className="mr-2" />
               <Text className="text-2xl font-black text-white">Save PDF</Text>

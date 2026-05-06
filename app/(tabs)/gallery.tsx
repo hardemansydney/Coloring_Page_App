@@ -5,10 +5,12 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
-import { Download, Trash2 } from "lucide-react-native";
+import { Download, Trash2, Pen } from "lucide-react-native";
 import { useState } from "react";
+import { useRouter } from "expo-router";
 
 export default function GalleryScreen() {
+  const router = useRouter();
   const pages = useQuery(api.pages.listPages);
   const deletePage = useMutation(api.pages.deletePage);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -80,11 +82,21 @@ export default function GalleryScreen() {
           />
           <View className="flex-row">
             <Pressable 
+              onPress={() => router.push({
+                pathname: "/color",
+                params: { imageUrl: fixConvexUrl(item.processedUrl) }
+              })}
+              className="w-16 items-center justify-center bg-sky-500 p-4 border-r border-white/20"
+            >
+              <Pen size={24} color="white" />
+            </Pressable>
+            
+            <Pressable 
               onPress={() => saveAsPDF(item.processedUrl)}
-              className="flex-1 flex-row items-center justify-center bg-sky-500 p-4"
+              className="flex-1 flex-row items-center justify-center bg-green-500 p-4"
             >
               <Download size={20} color="white" className="mr-2" />
-              <Text className="text-xl font-bold text-white uppercase">Download</Text>
+              <Text className="text-xl font-bold text-white uppercase">Save</Text>
             </Pressable>
             
             <Pressable 
