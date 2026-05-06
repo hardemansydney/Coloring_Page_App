@@ -1,9 +1,12 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { View, StyleSheet, PanResponder, Dimensions, Pressable, ScrollView, ImageBackground } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, PanResponder, Dimensions, Pressable, ScrollView, ImageBackground, ActivityIndicator } from 'react-native';
 import Svg, { Path, G } from 'react-native-svg';
 import { SafeAreaView, Text } from "@/components/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, RotateCcw, Undo2, Eraser, Pen } from "lucide-react-native";
+import { ChevronLeft, RotateCcw, Undo2, Eraser, Pen, Save } from "lucide-react-native";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CANVAS_SIZE = SCREEN_WIDTH - 20;
@@ -21,13 +24,53 @@ const COLORS = {
 
 export default function ColorScreen() {
   const router = useRouter();
-  const { imageUrl } = useLocalSearchParams<{ imageUrl: string }>();
+  const { pageId } = useLocalSearchParams<{ pageId: string }>();
+  
+  const pageResult = useQuery(api.pages.getPage, { pageId: pageId as Id<"pages"> });
+  const saveDrawing = useMutation(api.pages.saveDrawing);
   
   const [currentPath, setCurrentPath] = useState<string>('');
   const [paths, setPaths] = useState<string[]>([]);
   const [color, setColor] = useState('#FF0000');
   const [strokeWidth, setStrokeWidth] = useState(12);
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Initialize paths from Convex
+  useEffect(() => {
+    if (pageResult?.drawing) {
+      try {
+        const savedPaths = JSON.parse(pageResult.drawing);
+        if (Array.isArray(savedPaths)) {
+          setPaths(savedPaths);
+        }
+      } catch (e) {
+        console.error("Failed to parse saved drawing", e);
+      }
+    }
+  }, [pageResult?.drawing]);
+
+  const fixConvexUrl = (url: string | null | undefined) => {
+    if (!url) return "";
+    const sandboxId = "ipjonh1q6vj4r3aknu5c7";
+    if (url.includes("127.0.0.1") || url.includes("localhost")) {
+      return url.replace(/^http:\/\/(127\.0\.0\.1|localhost):(\d+)/, (match, host, port) => {
+        return `https://${port}-${sandboxId}.app.cto.new`;
+      });
+    }
+    return url;
+  };
+
+  const persistDrawing = async (updatedPaths: string[]) => {
+    try {
+      await saveDrawing({ 
+        pageId: pageId as Id<"pages">, 
+        drawing: JSON.stringify(updatedPaths) 
+      });
+    } catch (e) {
+      console.error("Auto-save failed", e);
+    }
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -41,18 +84,28 @@ export default function ColorScreen() {
         setCurrentPath((prev) => `${prev} L${locationX},${locationY}`);
       },
       onPanResponderRelease: () => {
-        setPaths((prev) => [...prev, `${currentPath}|${tool === 'eraser' ? '#FFFFFF' : color}|${strokeWidth}`]);
+        // Use functional state update to ensure we have the latest paths when persisting
+        setPaths((prev) => {
+          const newPaths = [...prev, `${currentPath}|${tool === 'eraser' ? '#FFFFFF' : color}|${strokeWidth}`];
+          persistDrawing(newPaths);
+          return newPaths;
+        });
         setCurrentPath('');
       },
     })
   ).current;
 
   const undo = () => {
-    setPaths((prev) => prev.slice(0, -1));
+    setPaths((prev) => {
+      const newPaths = prev.slice(0, -1);
+      persistDrawing(newPaths);
+      return newPaths;
+    });
   };
 
   const clear = () => {
     setPaths([]);
+    persistDrawing([]);
   };
 
   const ColorCircle = ({ c }: { c: string }) => (
@@ -66,9 +119,17 @@ export default function ColorScreen() {
     />
   );
 
+  if (!pageResult) {
+    return (
+      <View className="flex-1 items-center justify-center bg-sky-50">
+        <ActivityIndicator size="large" color="#0EA5E9" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-sky-50">
-      {/* Top Section (approx 25%) */}
+      {/* Top Section */}
       <View style={{ height: '20%', justifyContent: 'center' }} className="px-4">
         <View className="flex-row items-center justify-between">
           <Pressable onPress={() => router.back()} className="rounded-full bg-white p-3 shadow-md">
@@ -95,14 +156,14 @@ export default function ColorScreen() {
         </View>
       </View>
 
-      {/* Middle Section (approx 50%) */}
+      {/* Middle Section */}
       <View style={{ height: '50%', alignItems: 'center', justifyContent: 'center' }} className="px-2">
         <View 
           className="overflow-hidden rounded-3xl border-8 border-white bg-white shadow-2xl"
           style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
         >
           <ImageBackground
-            source={{ uri: imageUrl }}
+            source={{ uri: fixConvexUrl(pageResult.processedUrl) }}
             style={{ width: '100%', height: '100%' }}
             resizeMode="contain"
           >
@@ -140,7 +201,7 @@ export default function ColorScreen() {
         </View>
       </View>
 
-      {/* Bottom Section (approx 30%) */}
+      {/* Bottom Section */}
       <View style={{ height: '30%' }} className="bg-white rounded-t-[40px] shadow-2xl pt-4">
         <View className="flex-1 px-4">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 max-h-16">

@@ -82,7 +82,7 @@ export default function ProcessingScreen() {
           <View className="w-full max-w-[400px] gap-4">
             <Button size="lg" className="h-16 w-full bg-sky-500" onPress={() => router.push({
               pathname: "/color",
-              params: { imageUrl: resolveConvexUrl(pageResult.processedUrl!) }
+              params: { pageId: pageId }
             })}>
               <View className="flex-row items-center">
                 <Pen size={24} color="white" className="mr-2" />

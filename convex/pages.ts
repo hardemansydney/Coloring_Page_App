@@ -88,6 +88,18 @@ export const deletePage = mutation({
   },
 });
 
+export const saveDrawing = mutation({
+  args: { 
+    pageId: v.id("pages"), 
+    drawing: v.string() 
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.pageId, {
+      drawing: args.drawing,
+    });
+  },
+});
+
 export const processImage = action({
   args: { pageId: v.id("pages") },
   handler: async (ctx, args) => {

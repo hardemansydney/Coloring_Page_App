@@ -84,7 +84,7 @@ export default function GalleryScreen() {
             <Pressable 
               onPress={() => router.push({
                 pathname: "/color",
-                params: { imageUrl: fixConvexUrl(item.processedUrl) }
+                params: { pageId: item._id }
               })}
               className="w-16 items-center justify-center bg-sky-500 p-4 border-r border-white/20"
             >
