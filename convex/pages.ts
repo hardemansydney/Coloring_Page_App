@@ -132,7 +132,7 @@ export const processImage = action({
           {
             role: "user",
             content: [
-              { type: "text", text: "Describe this image in detail. Then, transform that description into a prompt for DALL-E 3 to create a kid-friendly, black and white cartoon coloring page. The coloring page should have thick bold black outlines, a pure white background, and no shading. Simplify complex details and remove small intricate patterns to make it easy for children to color." },
+              { type: "text", text: "Describe this image in detail. When humans are identified in the image, ensure details of age, gender, race/skin color, and hair texture/style are included. Then, transform that description into a prompt for DALL-E 3 to create a kid-friendly, black and white cartoon coloring page. The coloring page should have thick bold black outlines, a pure white background, and no shading. Simplify complex details and remove small intricate patterns to make it easy for children to color." },
               {
                 type: "image_url",
                 image_url: {
