@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View, Image, ActivityIndicator, ScrollView } from "react-native";
+import { View, Image, ActivityIndicator, ScrollView, Dimensions } from "react-native";
 import { SafeAreaView, Text, Button } from "@/components/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "convex/react";
@@ -8,6 +8,9 @@ import { Id } from "@/convex/_generated/dataModel";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import { Download, Pen } from "lucide-react-native";
+import { SketchPreview } from "@/components/SketchPreview";
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ProcessingScreen() {
   const router = useRouter();
@@ -29,11 +32,27 @@ export default function ProcessingScreen() {
   const saveAsPDF = async () => {
     const url = resolveConvexUrl(pageResult?.processedUrl);
     if (!url) return;
+    let lines: any[] = [];
     try {
+      lines = pageResult?.drawing ? JSON.parse(pageResult.drawing) : [];
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      // Build Polyline paths for the PDF
+      const polylinesHtml = lines.map(line => {
+        return `<polyline points="${line.points.join(',')}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" stroke-linejoin="round" />`;
+      }).join('');
+
       const html = `
         <html>
           <body style="display: flex; justify-content: center; align-items: center; background: pink; margin: 0; padding: 0;">
-            <img src="${url}" style="max-width: 100%; height: auto;" />
+            <div style="position: relative; width: 1000px; height: 1000px; background-image: url('${url}'); background-size: contain; background-repeat: no-repeat; background-position: center;">
+              <svg viewBox="0 0 ${SCREEN_WIDTH - 20} ${SCREEN_WIDTH - 20}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                ${polylinesHtml}
+              </svg>
+            </div>
           </body>
         </html>
       `;
@@ -60,10 +79,12 @@ export default function ProcessingScreen() {
 
         <View className="mb-8 aspect-square w-full max-w-[400px] overflow-hidden rounded-3xl border-8 border-white bg-white shadow-xl">
           {pageResult?.status === "completed" ? (
-            <Image 
-              source={{ uri: resolveConvexUrl(pageResult.processedUrl!) }} 
-              className="h-full w-full" 
-              resizeMode="contain" 
+            <SketchPreview 
+              imageUrl={resolveConvexUrl(pageResult.processedUrl!)}
+              drawingJson={pageResult.drawing}
+              width={Math.min(SCREEN_WIDTH - 40, 400)}
+              height={Math.min(SCREEN_WIDTH - 40, 400)}
+              borderRadius={0}
             />
           ) : (
             <View className="flex-1 items-center justify-center bg-gray-100">

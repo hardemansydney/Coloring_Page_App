@@ -1,4 +1,4 @@
-import { View, Image, FlatList, Pressable, Alert, ActivityIndicator } from "react-native";
+import { View, Image, FlatList, Pressable, Alert, ActivityIndicator, Dimensions } from "react-native";
 import { SafeAreaView } from "@/components/ui";
 import { Text, Button } from "@/components/ui";
 import { useQuery, useMutation } from "convex/react";
@@ -8,6 +8,9 @@ import * as Print from "expo-print";
 import { Download, Trash2, Pen } from "lucide-react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
+import { SketchPreview } from "@/components/SketchPreview";
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function GalleryScreen() {
   const router = useRouter();
@@ -26,13 +29,29 @@ export default function GalleryScreen() {
     return url;
   };
 
-  const saveAsPDF = async (url: string) => {
+  const saveAsPDF = async (url: string, drawingJson?: string) => {
     const fixedUrl = fixConvexUrl(url);
+    let lines: any[] = [];
     try {
+      lines = drawingJson ? JSON.parse(drawingJson) : [];
+    } catch (e) {
+      console.error(e);
+    }
+    
+    try {
+      // Build Polyline paths for the PDF
+      const polylinesHtml = lines.map(line => {
+        return `<polyline points="${line.points.join(',')}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" stroke-linejoin="round" />`;
+      }).join('');
+
       const html = `
         <html>
           <body style="display: flex; justify-content: center; align-items: center; background: pink; margin: 0; padding: 0;">
-            <img src="${fixedUrl}" style="max-width: 100%; height: auto;" />
+            <div style="position: relative; width: 1000px; height: 1000px; background-image: url('${fixedUrl}'); background-size: contain; background-repeat: no-repeat; background-position: center;">
+              <svg viewBox="0 0 ${SCREEN_WIDTH - 20} ${SCREEN_WIDTH - 20}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                ${polylinesHtml}
+              </svg>
+            </div>
           </body>
         </html>
       `;
@@ -75,10 +94,12 @@ export default function GalleryScreen() {
     return (
       <View className="mb-6 w-full p-4">
         <View className="overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg">
-          <Image 
-            source={{ uri: fixConvexUrl(item.processedUrl) }} 
-            className="h-64 w-full" 
-            resizeMode="contain" 
+          <SketchPreview 
+            imageUrl={fixConvexUrl(item.processedUrl)}
+            drawingJson={item.drawing}
+            width={SCREEN_WIDTH - 40}
+            height={SCREEN_WIDTH - 40}
+            borderRadius={0}
           />
           <View className="flex-row">
             <Pressable 
@@ -92,7 +113,7 @@ export default function GalleryScreen() {
             </Pressable>
             
             <Pressable 
-              onPress={() => saveAsPDF(item.processedUrl)}
+              onPress={() => saveAsPDF(item.processedUrl, item.drawing)}
               className="flex-1 flex-row items-center justify-center bg-green-500 p-4"
             >
               <Download size={20} color="white" className="mr-2" />

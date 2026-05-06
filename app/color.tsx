@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, PanResponder, Dimensions, Pressable, ScrollView, ImageBackground, ActivityIndicator } from 'react-native';
-import Svg, { Path, G } from 'react-native-svg';
+import Svg, { Polyline } from 'react-native-svg';
 import { SafeAreaView, Text } from "@/components/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, RotateCcw, Undo2, Eraser, Pen, Save } from "lucide-react-native";
+import { ChevronLeft, RotateCcw, Undo2, Eraser, Pen } from "lucide-react-native";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -22,6 +22,13 @@ const COLORS = {
   neutrals: ['#000000', '#FFFFFF']
 };
 
+interface Line {
+  tool: string;
+  points: number[];
+  color: string;
+  width: number;
+}
+
 export default function ColorScreen() {
   const router = useRouter();
   const { pageId } = useLocalSearchParams<{ pageId: string }>();
@@ -29,20 +36,21 @@ export default function ColorScreen() {
   const pageResult = useQuery(api.pages.getPage, { pageId: pageId as Id<"pages"> });
   const saveDrawing = useMutation(api.pages.saveDrawing);
   
-  const [currentPath, setCurrentPath] = useState<string>('');
-  const [paths, setPaths] = useState<string[]>([]);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
   const [color, setColor] = useState('#FF0000');
   const [strokeWidth, setStrokeWidth] = useState(12);
-  const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
   const [isSaving, setIsSaving] = useState(false);
+  
+  const isDrawing = useRef(false);
 
-  // Initialize paths from Convex
+  // Initialize lines from Convex
   useEffect(() => {
     if (pageResult?.drawing) {
       try {
-        const savedPaths = JSON.parse(pageResult.drawing);
-        if (Array.isArray(savedPaths)) {
-          setPaths(savedPaths);
+        const savedLines = JSON.parse(pageResult.drawing);
+        if (Array.isArray(savedLines)) {
+          setLines(savedLines);
         }
       } catch (e) {
         console.error("Failed to parse saved drawing", e);
@@ -61,14 +69,17 @@ export default function ColorScreen() {
     return url;
   };
 
-  const persistDrawing = async (updatedPaths: string[]) => {
+  const persistDrawing = async (updatedLines: Line[]) => {
+    setIsSaving(true);
     try {
       await saveDrawing({ 
         pageId: pageId as Id<"pages">, 
-        drawing: JSON.stringify(updatedPaths) 
+        drawing: JSON.stringify(updatedLines) 
       });
     } catch (e) {
       console.error("Auto-save failed", e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -76,35 +87,48 @@ export default function ColorScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
+        isDrawing.current = true;
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath(`M${locationX},${locationY}`);
+        setLines((prev) => [...prev, { 
+          tool, 
+          points: [locationX, locationY],
+          color: tool === 'eraser' ? '#FFFFFF' : color,
+          width: strokeWidth
+        }]);
       },
       onPanResponderMove: (evt) => {
+        if (!isDrawing.current) return;
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath((prev) => `${prev} L${locationX},${locationY}`);
+        
+        setLines((prev) => {
+          const newLines = [...prev];
+          const lastLine = { ...newLines[newLines.length - 1] };
+          lastLine.points = [...lastLine.points, locationX, locationY];
+          newLines[newLines.length - 1] = lastLine;
+          return newLines;
+        });
       },
       onPanResponderRelease: () => {
-        // Use functional state update to ensure we have the latest paths when persisting
-        setPaths((prev) => {
-          const newPaths = [...prev, `${currentPath}|${tool === 'eraser' ? '#FFFFFF' : color}|${strokeWidth}`];
-          persistDrawing(newPaths);
-          return newPaths;
+        isDrawing.current = false;
+        // Persist the current lines state to backend
+        setLines((currentLines) => {
+          persistDrawing(currentLines);
+          return currentLines;
         });
-        setCurrentPath('');
       },
     })
   ).current;
 
   const undo = () => {
-    setPaths((prev) => {
-      const newPaths = prev.slice(0, -1);
-      persistDrawing(newPaths);
-      return newPaths;
+    setLines((prev) => {
+      const newLines = prev.slice(0, -1);
+      persistDrawing(newLines);
+      return newLines;
     });
   };
 
   const clear = () => {
-    setPaths([]);
+    setLines([]);
     persistDrawing([]);
   };
 
@@ -129,7 +153,7 @@ export default function ColorScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sky-50">
-      {/* Top Section */}
+      {/* Top Section (20%) */}
       <View style={{ height: '20%', justifyContent: 'center' }} className="px-4">
         <View className="flex-row items-center justify-between">
           <Pressable onPress={() => router.back()} className="rounded-full bg-white p-3 shadow-md">
@@ -146,17 +170,26 @@ export default function ColorScreen() {
           </View>
         </View>
         <View className="mt-4 flex-row items-center justify-center gap-4">
-          <View 
-            className="h-8 w-8 rounded-full border-2 border-white shadow-sm" 
-            style={{ backgroundColor: tool === 'eraser' ? '#FFFFFF' : color }}
-          />
-          <Text className="text-lg font-bold text-sky-400">
-            {tool === 'eraser' ? 'Magic Eraser' : 'Magic Pen'}
-          </Text>
+          {isSaving ? (
+            <View className="flex-row items-center gap-2">
+              <ActivityIndicator size="small" color="#0EA5E9" />
+              <Text className="text-sm font-bold text-sky-400">Saving...</Text>
+            </View>
+          ) : (
+            <>
+              <View 
+                className="h-6 w-6 rounded-full border-2 border-white shadow-sm" 
+                style={{ backgroundColor: tool === 'eraser' ? '#FFFFFF' : color }}
+              />
+              <Text className="text-lg font-bold text-sky-400">
+                {tool === 'eraser' ? 'Magic Eraser' : 'Magic Pen'}
+              </Text>
+            </>
+          )}
         </View>
       </View>
 
-      {/* Middle Section */}
+      {/* Middle Section (50%) */}
       <View style={{ height: '50%', alignItems: 'center', justifyContent: 'center' }} className="px-2">
         <View 
           className="overflow-hidden rounded-3xl border-8 border-white bg-white shadow-2xl"
@@ -169,39 +202,24 @@ export default function ColorScreen() {
           >
             <View {...panResponder.panHandlers} style={StyleSheet.absoluteFill}>
               <Svg style={StyleSheet.absoluteFill}>
-                <G>
-                  {paths.map((item, index) => {
-                    const [pathData, pathColor, pathWidth] = item.split('|');
-                    return (
-                      <Path
-                        key={index}
-                        d={pathData}
-                        stroke={pathColor}
-                        strokeWidth={parseInt(pathWidth)}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                    );
-                  })}
-                  {currentPath ? (
-                    <Path
-                      d={currentPath}
-                      stroke={tool === 'eraser' ? '#FFFFFF' : color}
-                      strokeWidth={strokeWidth}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  ) : null}
-                </G>
+                {lines.map((line, i) => (
+                  <Polyline
+                    key={i}
+                    points={line.points.join(',')}
+                    fill="none"
+                    stroke={line.color}
+                    strokeWidth={line.width}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
               </Svg>
             </View>
           </ImageBackground>
         </View>
       </View>
 
-      {/* Bottom Section */}
+      {/* Bottom Section (30%) */}
       <View style={{ height: '30%' }} className="bg-white rounded-t-[40px] shadow-2xl pt-4">
         <View className="flex-1 px-4">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 max-h-16">
