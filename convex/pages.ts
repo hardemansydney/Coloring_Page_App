@@ -70,6 +70,24 @@ export const updateStatus = internalMutation({
   },
 });
 
+export const deletePage = mutation({
+  args: { pageId: v.id("pages") },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.pageId);
+    if (!page) return;
+
+    // Clean up storage if IDs exist
+    if (page.originalImageId) {
+      await ctx.storage.delete(page.originalImageId);
+    }
+    if (page.processedImageId) {
+      await ctx.storage.delete(page.processedImageId);
+    }
+
+    await ctx.db.delete(args.pageId);
+  },
+});
+
 export const processImage = action({
   args: { pageId: v.id("pages") },
   handler: async (ctx, args) => {

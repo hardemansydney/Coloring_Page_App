@@ -1,14 +1,17 @@
-import { View, Image, FlatList, Pressable, Alert } from "react-native";
+import { View, Image, FlatList, Pressable, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "@/components/ui";
-import { Text } from "@/components/ui";
-import { useQuery } from "convex/react";
+import { Text, Button } from "@/components/ui";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
-import { Download } from "lucide-react-native";
+import { Download, Trash2 } from "lucide-react-native";
+import { useState } from "react";
 
 export default function GalleryScreen() {
   const pages = useQuery(api.pages.listPages);
+  const deletePage = useMutation(api.pages.deletePage);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fixConvexUrl = (url: string | null | undefined) => {
     if (!url) return "";
@@ -39,6 +42,31 @@ export default function GalleryScreen() {
     }
   };
 
+  const handleDelete = (pageId: any) => {
+    Alert.alert(
+      "Delete Page?",
+      "Are you sure you want to delete this magic sketch? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDeleting(pageId);
+              await deletePage({ pageId });
+            } catch (error) {
+              console.error(error);
+              Alert.alert("Error", "Failed to delete page");
+            } finally {
+              setIsDeleting(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderItem = ({ item }: { item: any }) => {
     if (item.status !== "completed" || !item.processedUrl) return null;
 
@@ -50,13 +78,27 @@ export default function GalleryScreen() {
             className="h-64 w-full" 
             resizeMode="contain" 
           />
-          <Pressable 
-            onPress={() => saveAsPDF(item.processedUrl)}
-            className="flex-row items-center justify-center bg-sky-500 p-4"
-          >
-            <Download size={20} color="white" className="mr-2" />
-            <Text className="text-xl font-bold text-white uppercase">Download Again</Text>
-          </Pressable>
+          <View className="flex-row">
+            <Pressable 
+              onPress={() => saveAsPDF(item.processedUrl)}
+              className="flex-1 flex-row items-center justify-center bg-sky-500 p-4"
+            >
+              <Download size={20} color="white" className="mr-2" />
+              <Text className="text-xl font-bold text-white uppercase">Download</Text>
+            </Pressable>
+            
+            <Pressable 
+              onPress={() => handleDelete(item._id)}
+              disabled={isDeleting === item._id}
+              className="w-16 items-center justify-center bg-red-500 p-4 border-l border-white/20"
+            >
+              {isDeleting === item._id ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Trash2 size={24} color="white" />
+              )}
+            </Pressable>
+          </View>
         </View>
         <Text className="mt-2 text-center font-bold text-sky-400">
           Made on {new Date(item.createdAt).toLocaleDateString()}
