@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, ImageBackground, StyleSheet } from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
+import { View, StyleSheet } from 'react-native';
+import Svg, { Polyline, Defs, Filter, FeColorMatrix, G, Image as SvgImage } from 'react-native-svg';
 
 interface Line {
   tool: string;
@@ -33,12 +33,29 @@ export const SketchPreview: React.FC<SketchPreviewProps> = ({
 
   return (
     <View style={{ width, height, overflow: 'hidden', borderRadius, backgroundColor: 'white' }}>
-      <ImageBackground
-        source={{ uri: imageUrl }}
-        style={{ width: '100%', height: '100%' }}
-        resizeMode="contain"
-      >
-        <Svg style={StyleSheet.absoluteFill}>
+      <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <Defs>
+          <Filter id="lineFilterPreview">
+            <FeColorMatrix
+              type="matrix"
+              values="1 0 0 0 0 
+                      0 1 0 0 0 
+                      0 0 1 0 0 
+                      -1 -1 -1 0 1"
+            />
+          </Filter>
+        </Defs>
+
+        {/* Layer 1: Background */}
+        <SvgImage
+          href={imageUrl}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="xMidYMid meet"
+        />
+
+        {/* Layer 2: Drawing */}
+        <G>
           {lines.map((line, i) => (
             <Polyline
               key={i}
@@ -50,8 +67,18 @@ export const SketchPreview: React.FC<SketchPreviewProps> = ({
               strokeLinejoin="round"
             />
           ))}
-        </Svg>
-      </ImageBackground>
+        </G>
+
+        {/* Layer 3: Outlines */}
+        <G filter="url(#lineFilterPreview)">
+          <SvgImage
+            href={imageUrl}
+            width="100%"
+            height="100%"
+            preserveAspectRatio="xMidYMid meet"
+          />
+        </G>
+      </Svg>
     </View>
   );
 };

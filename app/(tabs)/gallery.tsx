@@ -47,10 +47,13 @@ export default function GalleryScreen() {
       const html = `
         <html>
           <body style="display: flex; justify-content: center; align-items: center; background: pink; margin: 0; padding: 0;">
-            <div style="position: relative; width: 1000px; height: 1000px; background-image: url('${fixedUrl}'); background-size: contain; background-repeat: no-repeat; background-position: center;">
+            <div style="position: relative; width: 1000px; height: 1000px; background: white;">
+              <!-- Layer 1: Coloring Strokes -->
               <svg viewBox="0 0 ${SCREEN_WIDTH - 20} ${SCREEN_WIDTH - 20}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                 ${polylinesHtml}
               </svg>
+              <!-- Layer 2: Sketch Outlines (Always on top via Multiply) -->
+              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('${fixedUrl}'); background-size: contain; background-repeat: no-repeat; background-position: center; mix-blend-mode: multiply;"></div>
             </div>
           </body>
         </html>

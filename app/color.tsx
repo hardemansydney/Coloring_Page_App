@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, PanResponder, Dimensions, Pressable, ScrollView, ImageBackground, ActivityIndicator } from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Polyline, Defs, Filter, FeColorMatrix, G, Image as SvgImage } from 'react-native-svg';
 import { SafeAreaView, Text } from "@/components/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, RotateCcw, Undo2, Eraser, Pen } from "lucide-react-native";
@@ -43,6 +43,17 @@ export default function ColorScreen() {
   const [isSaving, setIsSaving] = useState(false);
   
   const isDrawing = useRef(false);
+  
+  // Use refs to avoid stale closures in PanResponder
+  const colorRef = useRef(color);
+  const toolRef = useRef(tool);
+  const widthRef = useRef(strokeWidth);
+
+  useEffect(() => {
+    colorRef.current = color;
+    toolRef.current = tool;
+    widthRef.current = strokeWidth;
+  }, [color, tool, strokeWidth]);
 
   // Initialize lines from Convex
   useEffect(() => {
@@ -89,11 +100,16 @@ export default function ColorScreen() {
       onPanResponderGrant: (evt) => {
         isDrawing.current = true;
         const { locationX, locationY } = evt.nativeEvent;
+        
+        const currentTool = toolRef.current;
+        const currentColor = colorRef.current;
+        const currentWidth = widthRef.current;
+
         setLines((prev) => [...prev, { 
-          tool, 
+          tool: currentTool, 
           points: [locationX, locationY],
-          color: tool === 'eraser' ? '#FFFFFF' : color,
-          width: strokeWidth
+          color: currentTool === 'eraser' ? '#FFFFFF' : currentColor,
+          width: currentWidth
         }]);
       },
       onPanResponderMove: (evt) => {
@@ -195,13 +211,34 @@ export default function ColorScreen() {
           className="overflow-hidden rounded-3xl border-8 border-white bg-white shadow-2xl"
           style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
         >
-          <ImageBackground
-            source={{ uri: fixConvexUrl(pageResult.processedUrl) }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="contain"
-          >
-            <View {...panResponder.panHandlers} style={StyleSheet.absoluteFill}>
-              <Svg style={StyleSheet.absoluteFill}>
+          <View {...panResponder.panHandlers} style={StyleSheet.absoluteFill}>
+            <Svg 
+              width={CANVAS_SIZE} 
+              height={CANVAS_SIZE} 
+              viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
+            >
+              <Defs>
+                <Filter id="lineFilter">
+                  <FeColorMatrix
+                    type="matrix"
+                    values="1 0 0 0 0 
+                            0 1 0 0 0 
+                            0 0 1 0 0 
+                            -1 -1 -1 0 1"
+                  />
+                </Filter>
+              </Defs>
+
+              {/* Layer 1: The background sketch (Base) */}
+              <SvgImage
+                href={fixConvexUrl(pageResult.processedUrl)}
+                width="100%"
+                height="100%"
+                preserveAspectRatio="xMidYMid meet"
+              />
+
+              {/* Layer 2: The coloring strokes */}
+              <G>
                 {lines.map((line, i) => (
                   <Polyline
                     key={i}
@@ -213,9 +250,19 @@ export default function ColorScreen() {
                     strokeLinejoin="round"
                   />
                 ))}
-              </Svg>
-            </View>
-          </ImageBackground>
+              </G>
+
+              {/* Layer 3: The black lines of the sketch (Always on top) */}
+              <G filter="url(#lineFilter)">
+                <SvgImage
+                  href={fixConvexUrl(pageResult.processedUrl)}
+                  width="100%"
+                  height="100%"
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </G>
+            </Svg>
+          </View>
         </View>
       </View>
 
