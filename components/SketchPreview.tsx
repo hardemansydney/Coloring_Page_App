@@ -42,7 +42,7 @@ export const SketchPreview: React.FC<SketchPreviewProps> = ({
           {lines.map((line, i) => (
             <Polyline
               key={i}
-              points={line.points.join(',')}
+              points={line.points?.join(',') || ""}
               fill="none"
               stroke={line.color}
               strokeWidth={line.width}

@@ -42,7 +42,7 @@ export default function ProcessingScreen() {
     try {
       // Build Polyline paths for the PDF
       const polylinesHtml = lines.map(line => {
-        return `<polyline points="${line.points.join(',')}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" stroke-linejoin="round" />`;
+        return `<polyline points="${line.points?.join(',') || ""}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" stroke-linejoin="round" />`;
       }).join('');
 
       const html = `
