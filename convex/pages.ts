@@ -84,6 +84,17 @@ export const processImage = action({
     try {
       const openai = getOpenAI();
       console.log("Processing image with pageId:", args.pageId);
+
+      // Ensure we are using the HTTPS proxy URL for the physical device to access the image
+      const sandboxId = "ipjonh1q6vj4r3aknu5c7";
+      let imageUrlForOpenAI = page.originalUrl;
+      
+      if (imageUrlForOpenAI.includes("127.0.0.1") || imageUrlForOpenAI.includes("localhost")) {
+        imageUrlForOpenAI = imageUrlForOpenAI.replace(/^http:\/\/(127\.0\.0\.1|localhost):(\d+)/, (match, host, port) => {
+          return `https://${port}-${sandboxId}.app.cto.new`;
+        });
+      }
+
       // Step 1: Use GPT-4o Vision to describe the image as a coloring page
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -95,7 +106,7 @@ export const processImage = action({
               {
                 type: "image_url",
                 image_url: {
-                  url: page.originalUrl,
+                  url: imageUrlForOpenAI,
                 },
               },
             ],
@@ -104,6 +115,9 @@ export const processImage = action({
       });
 
       const descriptionPrompt = response.choices[0].message.content || "A simple coloring page.";
+      console.log("DESCRIPTION_PROMPT_START");
+      console.log(descriptionPrompt);
+      console.log("DESCRIPTION_PROMPT_END");
 
       // Step 2: Generate the coloring page using DALL-E 3
       const imageGen = await openai.images.generate({
@@ -119,8 +133,17 @@ export const processImage = action({
 
       // Step 3: Fetch the generated image and store it in Convex
       const imageResponse = await fetch(imageUrl);
-      const imageBlob = await imageResponse.blob();
-      const storageId = await ctx.storage.store(imageBlob);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`);
+      }
+      
+      const arrayBuffer = await imageResponse.arrayBuffer();
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error("Downloaded image is empty (0 bytes)");
+      }
+      
+      console.log(`Downloaded image size: ${arrayBuffer.byteLength} bytes`);
+      const storageId = await ctx.storage.store(new Blob([arrayBuffer]));
 
       await ctx.runMutation(internal.pages.updateStatus, {
         pageId: args.pageId,

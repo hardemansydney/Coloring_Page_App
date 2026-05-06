@@ -10,12 +10,24 @@ import { Download } from "lucide-react-native";
 export default function GalleryScreen() {
   const pages = useQuery(api.pages.listPages);
 
+  const fixConvexUrl = (url: string | null | undefined) => {
+    if (!url) return "";
+    const sandboxId = "ipjonh1q6vj4r3aknu5c7";
+    if (url.includes("127.0.0.1") || url.includes("localhost")) {
+      return url.replace(/^http:\/\/(127\.0\.0\.1|localhost):(\d+)/, (match, host, port) => {
+        return `https://${port}-${sandboxId}.app.cto.new`;
+      });
+    }
+    return url;
+  };
+
   const saveAsPDF = async (url: string) => {
+    const fixedUrl = fixConvexUrl(url);
     try {
       const html = `
         <html>
-          <body style="display: flex; justify-content: center; align-items: center; background: white;">
-            <img src="${url}" style="max-width: 100%; height: auto;" />
+          <body style="display: flex; justify-content: center; align-items: center; background: pink; margin: 0; padding: 0;">
+            <img src="${fixedUrl}" style="max-width: 100%; height: auto;" />
           </body>
         </html>
       `;
@@ -34,7 +46,7 @@ export default function GalleryScreen() {
       <View className="mb-6 w-full p-4">
         <View className="overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg">
           <Image 
-            source={{ uri: item.processedUrl }} 
+            source={{ uri: fixConvexUrl(item.processedUrl) }} 
             className="h-64 w-full" 
             resizeMode="contain" 
           />

@@ -24,6 +24,17 @@ export default function CreateScreen() {
   const createPage = useMutation(api.pages.createPage);
   const pageResult = useQuery(api.pages.getPage, pageId ? { pageId } : "skip");
 
+  const fixConvexUrl = (url: string | null | undefined) => {
+    if (!url) return "";
+    const sandboxId = "ipjonh1q6vj4r3aknu5c7";
+    if (url.includes("127.0.0.1") || url.includes("localhost")) {
+      return url.replace(/^http:\/\/(127\.0\.0\.1|localhost):(\d+)/, (match, host, port) => {
+        return `https://${port}-${sandboxId}.app.cto.new`;
+      });
+    }
+    return url;
+  };
+
   const handleTakePhoto = async () => {
     try {
       if (!cameraPermission?.granted) {
@@ -94,6 +105,9 @@ export default function CreateScreen() {
       setUploadStage("Preparing...");
       console.log("Starting upload and process for URI:", uri);
       
+      // Delay for mobile UI stabilization
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       let uploadUrl = await generateUploadUrl();
       uploadUrl = ensureHttps(uploadUrl);
       console.log("Generated upload URL:", uploadUrl);
@@ -137,12 +151,13 @@ export default function CreateScreen() {
   };
 
   const saveAsPDF = async () => {
-    if (!pageResult?.processedUrl) return;
+    const url = fixConvexUrl(pageResult?.processedUrl);
+    if (!url) return;
     try {
       const html = `
         <html>
-          <body style="display: flex; justify-content: center; align-items: center; background: white;">
-            <img src="${pageResult.processedUrl}" style="max-width: 100%; height: auto;" />
+          <body style="display: flex; justify-content: center; align-items: center; background: pink; margin: 0; padding: 0;">
+            <img src="${url}" style="max-width: 100%; height: auto;" />
           </body>
         </html>
       `;
@@ -164,24 +179,27 @@ export default function CreateScreen() {
   if (photo) {
     return (
       <SafeAreaView className="flex-1 bg-yellow-50">
-        <ScrollView contentContainerStyle={{ padding: 20, alignItems: "center" }}>
-          <Text className="mb-6 text-4xl font-black text-pink-500">
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, padding: 20, alignItems: "center", justifyContent: "center" }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text className="mb-6 text-center text-4xl font-black text-pink-500">
             Magic Time! ✨
           </Text>
 
-          <View className="mb-8 overflow-hidden rounded-3xl border-8 border-white bg-white shadow-xl">
+          <View className="mb-8 aspect-square w-full max-w-[400px] overflow-hidden rounded-3xl border-8 border-white bg-white shadow-xl">
             {pageResult?.status === "completed" ? (
               <Image 
-                source={{ uri: pageResult.processedUrl! }} 
-                className="h-80 w-80" 
+                source={{ uri: fixConvexUrl(pageResult.processedUrl!) }} 
+                className="h-full w-full" 
                 resizeMode="contain" 
               />
             ) : (
-              <View className="h-80 w-80 items-center justify-center bg-gray-100">
-                <Image source={{ uri: photo }} className="h-full w-full opacity-30" />
-                <View className="absolute items-center justify-center">
+              <View className="flex-1 items-center justify-center bg-gray-100">
+                <Image source={{ uri: photo }} className="absolute h-full w-full opacity-30" />
+                <View className="items-center justify-center p-4">
                   <ActivityIndicator size="large" color="#FF6B6B" />
-                  <Text className="mt-4 text-xl font-bold text-gray-600">
+                  <Text className="mt-4 text-center text-xl font-bold text-gray-600">
                     {uploadStage || (pageResult?.status === "processing" ? "Sketching..." : "Uploading...")}
                   </Text>
                 </View>
@@ -190,24 +208,24 @@ export default function CreateScreen() {
           </View>
 
           {pageResult?.status === "completed" ? (
-            <View className="w-full gap-4">
-              <Button size="lg" className="h-16 bg-green-500" onPress={saveAsPDF}>
-                <Download className="mr-2 text-white" />
+            <View className="w-full max-w-[400px] gap-4">
+              <Button size="lg" className="h-16 w-full bg-green-500" onPress={saveAsPDF}>
+                <Download size={24} color="white" className="mr-2" />
                 <Text className="text-2xl font-black text-white">Save PDF</Text>
               </Button>
-              <Button size="lg" variant="outline" className="h-16 border-4 border-pink-400" onPress={reset}>
+              <Button size="lg" variant="outline" className="h-16 w-full border-4 border-pink-400" onPress={reset}>
                 <Text className="text-2xl font-black text-pink-400">Make Another</Text>
               </Button>
             </View>
           ) : pageResult?.status === "failed" ? (
-            <View className="w-full gap-4">
+            <View className="w-full max-w-[400px] gap-4">
               <Text className="text-center text-xl font-bold text-red-500">Oh no! Something went wrong.</Text>
-              <Button size="lg" className="h-16 bg-pink-500" onPress={reset}>
+              <Button size="lg" className="h-16 w-full bg-pink-500" onPress={reset}>
                 <Text className="text-2xl font-black text-white">Try Again</Text>
               </Button>
             </View>
           ) : (
-            <Text className="text-center text-lg font-bold text-gray-400">
+            <Text className="max-w-[300px] text-center text-lg font-bold text-gray-400">
               Hold tight! We're making your coloring page kid-friendly.
             </Text>
           )}
@@ -218,30 +236,33 @@ export default function CreateScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sky-50">
-      <View className="flex-1 items-center justify-center p-6">
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, padding: 24, alignItems: "center", justifyContent: "center" }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="mb-10 items-center">
-          <View className="mb-4 rounded-full bg-pink-400 p-6 shadow-lg">
-            <Wand2 size={80} color="white" />
+          <View className="mb-6 rounded-full bg-pink-400 p-8 shadow-lg">
+            <Wand2 size={64} color="white" />
           </View>
-          <Text className="text-center text-5xl font-black text-sky-600">
+          <Text className="text-center text-5xl font-black leading-tight text-sky-600">
             Coloring{'\n'}Magic!
           </Text>
         </View>
 
-        <View className="w-full gap-5">
+        <View className="w-full max-w-[400px] gap-5">
           <Button 
             size="lg" 
-            className="h-24 rounded-3xl bg-pink-500 shadow-xl shadow-pink-200" 
+            className="h-20 w-full rounded-3xl bg-pink-500 shadow-xl shadow-pink-200" 
             onPress={handleTakePhoto}
           >
-            <Camera size={32} color="white" className="mr-3" />
+            <Camera size={28} color="white" className="mr-3" />
             <Text className="text-3xl font-black text-white">Take Photo</Text>
           </Button>
           
           <Button 
             size="lg" 
             variant="outline" 
-            className="h-20 rounded-3xl border-4 border-sky-400 bg-white shadow-xl shadow-sky-100" 
+            className="h-20 w-full rounded-3xl border-4 border-sky-400 bg-white shadow-xl shadow-sky-100" 
             onPress={handlePickImage}
           >
             <ImageIcon size={28} color="#38BDF8" className="mr-3" />
@@ -249,10 +270,10 @@ export default function CreateScreen() {
           </Button>
         </View>
 
-        <Text className="mt-10 text-center text-lg font-bold text-sky-300">
-          Turn your favorite photos into{'\n'}fun coloring pages!
+        <Text className="mt-12 max-w-[280px] text-center text-lg font-bold leading-relaxed text-sky-300">
+          Turn your favorite photos into fun coloring pages!
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
