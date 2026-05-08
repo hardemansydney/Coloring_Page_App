@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Coloring Magic",
-    "slug": "coloring-magic",
+    "slug": "coloring-page-app",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,14 +14,22 @@
       "backgroundColor": "#FF6B6B"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sydneyhardeman.coloringpageapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FF6B6B"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.sydneyhardeman.coloringpageapp"
     },
     "web": {
       "bundler": "metro",
@@ -36,11 +44,17 @@
           "photosPermission": "Allow Coloring Magic to access your photos to turn them into coloring pages.",
           "cameraPermission": "Allow Coloring Magic to use your camera to take photos and turn them into coloring pages."
         }
-      ],
-      "expo-sharing"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dd1c44e1-8e40-48f5-815f-1a0fff6401c2"
+      }
+    },
+    "owner": "sydneyhardeman"
   }
 }
